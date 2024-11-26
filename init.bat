@@ -15,4 +15,5 @@ del go.mod
 del go.sum
 cd ..
 echo if you have issues with init db please make sure you have mingw, it needs it.
+go mod tidy
 go run main.go
