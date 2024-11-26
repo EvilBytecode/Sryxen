@@ -178,7 +178,74 @@
                 background-position-x: 0;
             }
         }
+        input[type="text"], input[type="submit"] {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 15px;
+        border: 1px solid #444;
+        border-radius: 5px;
+        font-size: 16px;
+        color: #fff;
+        background-color: rgba(0, 0, 0, 0.5);
+        transition: all 0.3s ease-in-out;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+    }
 
+    input[type="text"]:focus, input[type="submit"]:hover {
+        outline: none;
+        background-color: rgba(0, 0, 0, 0.7);
+        border-color: #9b5ded;
+        box-shadow: 0 0 8px #9b5ded;
+        transform: scale(1.03);
+    }
+
+    label {
+        font-size: 1rem;
+        color: #9b5ded;
+        font-weight: bold;
+        margin-bottom: 5px;
+        display: block;
+        animation: fadeInUp 0.5s ease;
+    }
+
+    input[type="text"]::placeholder {
+        color: #888;
+        opacity: 0.8;
+        transition: color 0.3s ease-in-out;
+    }
+
+    input[type="text"]:focus::placeholder {
+        color: #555;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    input[type="submit"] {
+        background: linear-gradient(135deg, #5e0766, #9b5ded);
+        color: #fff;
+        font-weight: bold;
+        cursor: pointer;
+        border: none;
+        transition: all 0.3s ease;
+    }
+
+    input[type="submit"]:hover {
+        background: linear-gradient(135deg, #9b5ded, #5e0766);
+        box-shadow: 0 4px 10px rgba(155, 93, 237, 0.6);
+    }
+
+    .form input {
+        animation: fadeInUp 0.6s ease;
+    }
     </style>
 </head>
 <body>
@@ -192,10 +259,16 @@
         <form class="form" id="builderForm" action="/generate-payload" method="POST">
             <label for="url">Enter PlayIT.gg URL:</label>
             <input type="text" id="url" name="url" placeholder="https://playit.gg/..." required>
-            
+        
             <label for="apiKey">API Key:</label>
             <input type="text" id="apiKey" name="apiKey" placeholder="API Key" required>
             
+            <label for="botToken">Telegram Bot Token:</label>
+            <input type="text" id="botToken" name="botToken" placeholder="Telegram Bot Token" required>
+            
+            <label for="chatID">Telegram Chat ID:</label>
+            <input type="text" id="chatID" name="chatID" placeholder="Telegram Chat ID" required>
+        
             <input type="submit" value="Generate Payload">
         </form>
     </div>
@@ -212,15 +285,17 @@
             });
         });
 
-        document.getElementById("builderForm").addEventListener("submit", (e) => {
-            const url = document.getElementById("url").value.trim();
-            const apiKey = document.getElementById("apiKey").value.trim();
+    document.getElementById("builderForm").addEventListener("submit", (e) => {
+        const url = document.getElementById("url").value.trim();
+        const apiKey = document.getElementById("apiKey").value.trim();
+        const botToken = document.getElementById("botToken").value.trim();
+        const chatID = document.getElementById("chatID").value.trim();
 
-            if (!url || !apiKey) {
-                alert("Please fill in both the URL and API Key.");
-                e.preventDefault();
-            }
-        });
+        if (!url || !apiKey || !botToken || !chatID) {
+            alert("Please fill in all fields.");
+            e.preventDefault();
+        }
+    });
     </script>
 </body>
 </html>
