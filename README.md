@@ -68,9 +68,7 @@ The Sryxen stealer includes a **Custom C2 Web Panel** for easy management and mo
 
 #### Setting Up
 - BEFORE DOING ANYTHING RUN ```init.bat```
-1. **Port Forwarding with Playit.gg**
-   - Use [Playit.gg](https://playit.gg) to get url with port.
-   - After in main.go replace the port with yours and after open the url that playit gave you.
+
 
 ## Detections (Runtime Paid analysis & Static):
 ![Static Analaysis](https://github.com/user-attachments/assets/b089cb06-2883-4c45-9e4a-e7f0d4222a2c)
